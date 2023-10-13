@@ -1,4 +1,5 @@
 ﻿using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using ProductManager.Domain;
 using static System.Console;
@@ -20,47 +21,149 @@ class Program
     {
         // Gör att att HTTP-header "Authorization" skickas med i anropet till web APi:et
         // Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYmYiOjE2OTc...
-        // Hämta strängen ifrån Thunder CLient
+        // Hämta strängen ifrån Thunder CLient logga in
 
         httpClient.DefaultRequestHeaders.Authorization
-            = new AuthenticationHeaderValue("Bearer", "tKE+pMd2rQAHBbOjXWTZqacLJRLqlrnTzZdmKRJEXLjtiGOnFY3w+vuUxPSgLdMFbbVXxPrFWNUd/yQyG5PsEg==");
+            = new AuthenticationHeaderValue("Bearer", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYmYiOjE2OTcyMDczNzIsImV4cCI6MTY5NzIxMDk3MiwiaWF0IjoxNjk3MjA3MzcyfQ.riQbU2g3308tD9GeDXXEzuXf1ZmUEgEk7lAu09gcFUI");
 
         Title = "Product Manager";
 
-        while (true)
+        while (true) // Loop som körs tills vi stänger ner applikationen
         {
+            WriteLine("1. Lägg till produkt");
+            WriteLine("2. Sök produkt");
+            WriteLine("3. Avsluta");
 
-            //CursorVisible = false;
-
-            WriteLine("1. Lista produkter");
-
-
-            var keyPressed = ReadKey(true);
+            var keyPressedMenuChoice = ReadKey(true); // Fångar in knapptryck
 
             Clear();
 
-            switch (keyPressed.Key)
+            switch (keyPressedMenuChoice.Key) //.Key hämtar knappen från ReadKey
             {
-                case ConsoleKey.D1:
+                case ConsoleKey.D1: // Case för knapptryck 1
                 case ConsoleKey.NumPad1:
 
-                    try
-                    {
-                        ListProductView();
-                    }
-                    catch
-                    {
-                        WriteLine("Du saknar behörighet att lista fordon");
-                        Thread.Sleep(2000);
-                    }
+                    RegisterProduct();
 
                     break;
+
+                case ConsoleKey.D2: // Case för knapptryck 2
+                case ConsoleKey.NumPad2:
+
+                    SearchProduct();
+
+                    break;
+
+                case ConsoleKey.D3: // Case för knapptryck 3
+                case ConsoleKey.NumPad3:
+
+                    Environment.Exit(0); // Metodanrop i C# 
+
+                    return;
             }
 
             Clear();
-
-
         }
+    }
+
+    private static void SearchProduct()
+    {
+        throw new NotImplementedException();
+    }
+
+    //Metoderna
+    private static void RegisterProduct() // Registrera en ny produkt
+    {
+        CursorVisible = true;
+
+        Write("Namn: ");
+
+        var name = ReadLine();
+
+        Write("SKU: ");
+
+        var sku = ReadLine();
+
+        Write("Beskrivning: ");
+
+        var description = ReadLine();
+
+        Write("Bild (URL): ");
+
+        var image = ReadLine();
+
+        Write("Pris: ");
+
+        var price = decimal.Parse(ReadLine());
+
+        CursorVisible = false;
+
+
+        var product = new Product // Samla ihop alla värden/för över värden i ett objekt/klass som representera Produkten.
+        {
+            Name = name,
+            Sku = sku,
+            Description = description,
+            Image = image,
+            Price = price
+        };
+
+        WriteLine();
+        WriteLine();
+        Write("Är detta korrekt? (J)a (N)ej");
+
+        while (true)
+        {
+            var keyPressedConfirmRegisterProduct = ReadKey(true); // Väntar in knapptryck
+
+            switch (keyPressedConfirmRegisterProduct.Key)
+            {
+                case ConsoleKey.J: // Case för knapptryck J
+
+                    Clear();
+
+                    SaveProduct(product); // Spara produkten
+
+                    WriteLine("Produkt sparad");
+
+                    Thread.Sleep(2000);
+
+                    return;
+
+                case ConsoleKey.N: // Case för knapptryck N
+
+                    Clear();
+
+                    RegisterProduct(); // Registrera produkten
+
+                    return;
+            }
+        }
+
+    }
+
+    private static void SaveProduct(Product product)
+    {
+        // TODO Skicka information om filmen till web API:et genom att skicka 
+        //      ett HTTP POST-anrop till https://localhost:8000/movies
+
+        // 1 - Serialisera movie-objekt till JSON ({ "title": "Aliens", "plot": "Lorem ipsum dolor", ... })
+        var json = JsonSerializer.Serialize(product);
+
+        var body = new StringContent(
+          json,
+          Encoding.UTF8,
+          // Beskriver formatet på data
+          "application/json");
+
+        // POST https://localhost:8000/movies
+        var response = httpClient.PostAsync("products", body).Result;
+
+        // Om statuskod är "400 Bad Request", kasta exception som du sedan fångar
+        // där SaveMovie() anropas, och då visar meddelandet "Ogiltig information" i 2 sekunder.
+
+        // Kasta exception om statuskoden inte ligger inom 2xx-omfånget.
+        response.EnsureSuccessStatusCode();
     }
 
     private static void ListProductView()
@@ -116,8 +219,6 @@ class Program
 
         return products;
     }
-
-
 
     private static void WaitUntilKeyPressed(ConsoleKey key)
     {
