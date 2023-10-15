@@ -24,7 +24,7 @@ class Program
         // Hämta strängen ifrån Thunder CLient logga in
 
         httpClient.DefaultRequestHeaders.Authorization
-            = new AuthenticationHeaderValue("Bearer", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYmYiOjE2OTcyMDczNzIsImV4cCI6MTY5NzIxMDk3MiwiaWF0IjoxNjk3MjA3MzcyfQ.riQbU2g3308tD9GeDXXEzuXf1ZmUEgEk7lAu09gcFUI");
+            = new AuthenticationHeaderValue("Bearer", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYmYiOjE2OTczODM0NjQsImV4cCI6MTY5NzM4NzA2NCwiaWF0IjoxNjk3MzgzNDY0fQ.pvcwUqC4XAEIfOO-LsrmzSciNFJ3Zm6lMvzRdWH-waU");
 
         Title = "Product Manager";
 
@@ -43,14 +43,14 @@ class Program
                 case ConsoleKey.D1: // Case för knapptryck 1
                 case ConsoleKey.NumPad1:
 
-                    RegisterProduct();
+                    RegisterProductView();
 
                     break;
 
                 case ConsoleKey.D2: // Case för knapptryck 2
                 case ConsoleKey.NumPad2:
 
-                    SearchProduct();
+                    SearchProductView();
 
                     break;
 
@@ -66,13 +66,165 @@ class Program
         }
     }
 
-    private static void SearchProduct()
+    private static void SearchProductView()
+    {
+        CursorVisible = true;
+
+        Write("SKU: ");
+
+        string sku = ReadLine();
+
+        CursorVisible = false;
+
+        Clear();
+
+        var product = GetProductBySku(sku);
+
+        if (product is not null) // Om produkten hittades
+        {
+            WriteLine($"Namn: {product.Name}");
+            WriteLine($"Sku: {product.Sku}");
+            WriteLine($"Beskrivning: {product.Description}");
+            WriteLine($"Bild (URL): {product.Image}");
+            WriteLine($"Pris: {product.Price}");
+            WriteLine("");
+            WriteLine("");
+            WriteLine("(R)adera" + "  " + "(U)ppdatera");
+
+            while (true)
+            {
+                var keyPressedDeleteOrUpdateProduct = ReadKey(true); // Väntar in knapptryck
+
+                switch (keyPressedDeleteOrUpdateProduct.Key) // Hantera knapptryck
+                {
+                    case ConsoleKey.R: // Case för knapptryck R
+
+                        DeleteProduct(product);
+
+                        return;
+
+                    case ConsoleKey.Escape: // Case för knapptryck Escape
+
+                        return;
+
+                    case ConsoleKey.U: // Case för knapptryck U
+
+                        UpdateProduct(product);
+
+                        return;
+                }
+            }
+        }
+        else
+        {
+            WriteLine("Produkt finns ej");
+
+            Thread.Sleep(2000);
+        }
+
+    }
+
+    private static void UpdateProduct(Product product)
     {
         throw new NotImplementedException();
     }
 
+    private static void DeleteProduct(Product product)
+    {
+
+        Clear();
+
+        WriteLine($"Namn: {product.Name}");
+        WriteLine($"Sku: {product.Sku}");
+        WriteLine($"Beskrivning: {product.Description}");
+        WriteLine($"Bild: {product.Image}");
+        WriteLine($"Pris: {product.Price}");
+        WriteLine("");
+        WriteLine("");
+        WriteLine("Radera produkt? (J)a eller (N)ej");
+
+        while (true)
+        {
+
+            var keyPressedConfirmDeleteProduct = ReadKey(true); // Väntar in knapptryck
+
+            switch (keyPressedConfirmDeleteProduct.Key)
+            {
+                case ConsoleKey.J:
+                    Clear();
+
+                    // DELETE https://localhost:8000/products/{id}
+                    var response = httpClient.GetAsync("products").Result;
+
+                    // Kommer kasta Exception om statuskod inte var något i 2xx-omfånget (t.ex. 404 Not Found)
+                    response.EnsureSuccessStatusCode();
+
+                    WriteLine("Produkt raderad");
+
+                    Thread.Sleep(2000);
+
+                    return;
+
+                case ConsoleKey.N:
+
+                    Clear();
+
+                    WriteLine($"Namn: {product.Name}");
+                    WriteLine($"Sku: {product.Sku}");
+                    WriteLine($"Beskrivning: {product.Description}");
+                    WriteLine($"Bild: {product.Image}");
+                    WriteLine($"Pris: {product.Price}");
+                    WriteLine("");
+                    WriteLine("");
+                    WriteLine("(R)adera" + "  " + "(U)ppdatera");
+
+                    break;
+            }
+
+            switch (keyPressedConfirmDeleteProduct.Key)
+
+            {
+                case ConsoleKey.R: // Case för knapptryck R
+
+                    DeleteProduct(product);
+
+                    return;
+
+                case ConsoleKey.Escape: // Case för knapptryck Escape
+
+                    return;
+            }
+
+        }
+    }
+
+    private static Product GetProductBySku(string sku) //strint title = null tillåter oss att anropa metoden med eller utan title
+    {
+        // GET https://localhost:8000/products/{sku}
+
+        HttpResponseMessage response;
+
+        // GET https://localhost:8000/movies?title={title}
+        response = httpClient.GetAsync($"products/{sku}").Result;
+
+        var json = response.Content
+            .ReadAsStringAsync()
+            .Result;
+
+        var serializeOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+
+
+        // Deserializing JSON to a single Product
+        var product = JsonSerializer.Deserialize<Product>(json, serializeOptions);
+
+        return product;
+    }
+
     //Metoderna
-    private static void RegisterProduct() // Registrera en ny produkt
+    private static void RegisterProductView() // Registrera en ny produkt
     {
         CursorVisible = true;
 
@@ -134,7 +286,7 @@ class Program
 
                     Clear();
 
-                    RegisterProduct(); // Registrera produkten
+                    RegisterProductView(); // Registrera produkten
 
                     return;
             }
@@ -165,67 +317,5 @@ class Program
         // Kasta exception om statuskoden inte ligger inom 2xx-omfånget.
         response.EnsureSuccessStatusCode();
     }
-
-    private static void ListProductView()
-    {
-        // 1 - Hämta forecasts från backend (web api) (alltså skicka en HHTP GET förfrågan)
-        var products = GetProducts();
-
-        // 2 - Skriv ut en "tabell", på samma sätt som vi precis gjorde i vår web-applikation
-
-        Write($"{"Name",-16}");
-        Write($"{"Sku",-16}");
-        WriteLine("Description");
-
-        foreach (var product in products)
-        {
-            Write($"{product.Name,-16}");
-            Write($"{product.Sku,-16}");
-            WriteLine(product.Description);
-        }
-
-        // 3 - Vänta på att användaren trycker på escape, återvänd då till huvudmenyn
-        WaitUntilKeyPressed(ConsoleKey.Escape);
-
-    }
-
-    //vi vill Returnera IEnumerable <WeatherForeCast>
-    // IEnumarable inte är en datatyp i sig själv utan snarare
-    // ett gränssnitt som används för att hantera upprepning över samlingar av data.
-
-    private static IEnumerable<Product> GetProducts()
-    {
-        // 1 - Skicka ett HTTP GET-anrop till backend (web api)
-        // HTTP finns det olika metoder (GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS, TRACE, ...)
-
-        // https://localhost:8000/ + weatherforecast
-        // Skickar en HTTP GET till https://localhost:8000/weatherforecast
-        var response = httpClient.GetAsync("products").Result;
-
-        // 2 - Läs ut JSON som vi fått tillbaka
-        var json = response.Content.ReadAsStringAsync().Result;
-
-        // 3 - Deserialisera JSON till ett objekt (IEnumerable<WeatherForecast>)
-        var serializeOptions = new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        };
-
-        var products = JsonSerializer
-            .Deserialize<IEnumerable<Product>>(json, serializeOptions)
-            ?? new List<Product>();
-
-        // 4 - Returnera resultatet (IEnumerable<WeatherForecast>)
-
-        return products;
-    }
-
-    private static void WaitUntilKeyPressed(ConsoleKey key)
-    {
-        while (ReadKey(true).Key != key) ;
-    }
-
-
-
 }
 
