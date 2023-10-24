@@ -1,4 +1,5 @@
 ﻿using System.Net.Http.Headers;
+using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using System.Text.Json;
 using ProductManager.Domain;
@@ -23,8 +24,22 @@ class Program
         // Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYmYiOjE2OTc...
         // Hämta strängen ifrån Thunder CLient logga in
 
+        var token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJnaXZlbl9uYW1lIjoiUGVuIiwiZmFtaWx5X25hbWUiOiJEb2UiLCJuYmYiOjE2OTgwNzM5MjMsImV4cCI6MTY5ODA3NzUyMywiaWF0IjoxNjk4MDczOTIzfQ.ln0pRHK12JItyM_SNTGa-ckoX7ZXuNDnPhJ0DdvUc1o";
+
         httpClient.DefaultRequestHeaders.Authorization
-            = new AuthenticationHeaderValue("Bearer", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYmYiOjE2OTczODM0NjQsImV4cCI6MTY5NzM4NzA2NCwiaWF0IjoxNjk3MzgzNDY0fQ.pvcwUqC4XAEIfOO-LsrmzSciNFJ3Zm6lMvzRdWH-waU");
+            = new AuthenticationHeaderValue("Bearer", token);
+
+        var handler = new JwtSecurityTokenHandler();
+        var jwtSecurityToken = handler.ReadJwtToken(token);
+
+        var firstName = jwtSecurityToken.Claims.First(Claim => Claim.Type == "given_name"); // få ut förnamn
+
+        var lastName = jwtSecurityToken.Claims.First(Claim => Claim.Type == "family_name"); // få ut efternamn
+
+        WriteLine();
+        WriteLine($"Välkommen {firstName.Value} {lastName.Value}");// skriver ut förnamn och efternamn
+        WriteLine();
+
 
         Title = "Product Manager";
 
@@ -153,7 +168,7 @@ class Program
                 case ConsoleKey.J:
                     Clear();
 
-                    // DELETE https://localhost:8000/products/{id}
+                    // DELETE https://localhost:8000/products/{id}2
                     var response = httpClient.GetAsync("products").Result;
 
                     // Kommer kasta Exception om statuskod inte var något i 2xx-omfånget (t.ex. 404 Not Found)
@@ -222,8 +237,6 @@ class Program
 
         return product;
     }
-
-    //Metoderna
     private static void RegisterProductView() // Registrera en ny produkt
     {
         CursorVisible = true;
@@ -274,9 +287,16 @@ class Program
 
                     Clear();
 
-                    SaveProduct(product); // Spara produkten
+                    try
+                    {
+                        SaveProduct(product); // Spara produkten
 
-                    WriteLine("Produkt sparad");
+                        WriteLine("Produkt sparad");
+                    }
+                    catch
+                    {
+                        WriteLine("Ogiltig information");
+                    }
 
                     Thread.Sleep(2000);
 
@@ -293,6 +313,8 @@ class Program
         }
 
     }
+
+
 
     private static void SaveProduct(Product product)
     {
@@ -318,4 +340,5 @@ class Program
         response.EnsureSuccessStatusCode();
     }
 }
+
 
