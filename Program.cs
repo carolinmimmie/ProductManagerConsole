@@ -4,6 +4,9 @@ using System.Text;
 using System.Text.Json;
 using ProductManager.Domain;
 using static System.Console;
+using System.Security.Claims;
+using System.Net;
+
 
 namespace ProductManagerConsole;
 
@@ -24,7 +27,7 @@ class Program
         // Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYmYiOjE2OTc...
         // Hämta strängen ifrån Thunder CLient logga in
 
-        var token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJnaXZlbl9uYW1lIjoiUGVuIiwiZmFtaWx5X25hbWUiOiJEb2UiLCJuYmYiOjE2OTgwNzM5MjMsImV4cCI6MTY5ODA3NzUyMywiaWF0IjoxNjk4MDczOTIzfQ.ln0pRHK12JItyM_SNTGa-ckoX7ZXuNDnPhJ0DdvUc1o";
+        var token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJnaXZlbl9uYW1lIjoiUGVuIiwiZmFtaWx5X25hbWUiOiJEb2UiLCJuYmYiOjE2OTgzMTkzNDAsImV4cCI6MTY5ODMyMjk0MCwiaWF0IjoxNjk4MzE5MzQwfQ.UqQCcb7QZNGUPLyB3wz6QTt9EU4tjdDDRhc-voZb_1c";
 
         httpClient.DefaultRequestHeaders.Authorization
             = new AuthenticationHeaderValue("Bearer", token);
@@ -80,7 +83,6 @@ class Program
             Clear();
         }
     }
-
     private static void SearchProductView()
     {
         CursorVisible = true;
@@ -93,50 +95,54 @@ class Program
 
         Clear();
 
-        var product = GetProductBySku(sku);
-
-        if (product is not null) // Om produkten hittades
+        try
         {
-            WriteLine($"Namn: {product.Name}");
-            WriteLine($"Sku: {product.Sku}");
-            WriteLine($"Beskrivning: {product.Description}");
-            WriteLine($"Bild (URL): {product.Image}");
-            WriteLine($"Pris: {product.Price}");
-            WriteLine("");
-            WriteLine("");
-            WriteLine("(R)adera" + "  " + "(U)ppdatera");
+            var product = GetProductBySku(sku);
 
-            while (true)
+            if (product != null)
             {
-                var keyPressedDeleteOrUpdateProduct = ReadKey(true); // Väntar in knapptryck
+                ShowProductBySku(product);
 
-                switch (keyPressedDeleteOrUpdateProduct.Key) // Hantera knapptryck
+                // Move the while loop outside the try block
+                while (true)
                 {
-                    case ConsoleKey.R: // Case för knapptryck R
+                    var keyPressedDeleteOrUpdateProduct = ReadKey(true); // Väntar in knapptryck
 
-                        DeleteProduct(product);
+                    switch (keyPressedDeleteOrUpdateProduct.Key) // Hantera knapptryck
+                    {
+                        case ConsoleKey.R: // Case för knapptryck R
+                            DeleteProductView(product);
+                            return;
 
-                        return;
+                        case ConsoleKey.Escape: // Case för knapptryck Escape
+                            return;
 
-                    case ConsoleKey.Escape: // Case för knapptryck Escape
-
-                        return;
-
-                    case ConsoleKey.U: // Case för knapptryck U
-
-                        UpdateProduct(product);
-
-                        return;
+                        case ConsoleKey.U: // Case för knapptryck U
+                            UpdateProduct(product);
+                            return;
+                    }
                 }
             }
         }
-        else
+        catch 
         {
-            WriteLine("Produkt finns ej");
-
+            WriteLine("Produkt saknas");
             Thread.Sleep(2000);
         }
+    }
 
+
+
+    private static void ShowProductBySku(Product product)
+    {
+        WriteLine($"Namn: {product.Name}");
+        WriteLine($"Sku: {product.Sku}");
+        WriteLine($"Beskrivning: {product.Description}");
+        WriteLine($"Bild (URL): {product.Image}");
+        WriteLine($"Pris: {product.Price}");
+        WriteLine("");
+        WriteLine("");
+        WriteLine("(R)adera" + "  " + "(U)ppdatera");
     }
 
     private static void UpdateProduct(Product product)
@@ -144,7 +150,7 @@ class Program
         throw new NotImplementedException();
     }
 
-    private static void DeleteProduct(Product product)
+    private static void DeleteProductView(Product product)
     {
 
         Clear();
@@ -166,15 +172,12 @@ class Program
             switch (keyPressedConfirmDeleteProduct.Key)
             {
                 case ConsoleKey.J:
+
                     Clear();
 
-                    // DELETE https://localhost:8000/products/{id}2
-                    var response = httpClient.GetAsync("products").Result;
+                    DeleteProduct(product.Sku);
 
-                    // Kommer kasta Exception om statuskod inte var något i 2xx-omfånget (t.ex. 404 Not Found)
-                    response.EnsureSuccessStatusCode();
-
-                    WriteLine("Produkt raderad");
+                    WriteLine("produkt raderad");
 
                     Thread.Sleep(2000);
 
@@ -184,14 +187,7 @@ class Program
 
                     Clear();
 
-                    WriteLine($"Namn: {product.Name}");
-                    WriteLine($"Sku: {product.Sku}");
-                    WriteLine($"Beskrivning: {product.Description}");
-                    WriteLine($"Bild: {product.Image}");
-                    WriteLine($"Pris: {product.Price}");
-                    WriteLine("");
-                    WriteLine("");
-                    WriteLine("(R)adera" + "  " + "(U)ppdatera");
+                    ShowProductBySku(product);
 
                     break;
             }
@@ -201,7 +197,7 @@ class Program
             {
                 case ConsoleKey.R: // Case för knapptryck R
 
-                    DeleteProduct(product);
+                    DeleteProductView(product);
 
                     return;
 
@@ -213,6 +209,17 @@ class Program
         }
     }
 
+    private static bool DeleteProduct(string sku)
+    {
+        // DELETE https://localhost:8000/ + "vehicles/{vehicleId}"
+        // DELETE https://localhost:8000/vehicles/1
+        var response = httpClient.DeleteAsync($"products/{sku}").Result;
+
+        // Kontrollera om vi fick en 2xx statuskod tillbaka (kommer vara 204 No Content i så fall)
+        return response.IsSuccessStatusCode;
+    }
+
+
     private static Product GetProductBySku(string sku) //strint title = null tillåter oss att anropa metoden med eller utan title
     {
         // GET https://localhost:8000/products/{sku}
@@ -221,6 +228,8 @@ class Program
 
         // GET https://localhost:8000/movies?title={title}
         response = httpClient.GetAsync($"products/{sku}").Result;
+
+
 
         var json = response.Content
             .ReadAsStringAsync()
@@ -237,6 +246,8 @@ class Program
 
         return product;
     }
+
+
     private static void RegisterProductView() // Registrera en ny produkt
     {
         CursorVisible = true;
@@ -286,17 +297,18 @@ class Program
                 case ConsoleKey.J: // Case för knapptryck J
 
                     Clear();
+                    SaveProduct(product);
 
-                    try
-                    {
-                        SaveProduct(product); // Spara produkten
+                    // try
+                    // {
+                    //     SaveProduct(product); // Spara produkten
 
-                        WriteLine("Produkt sparad");
-                    }
-                    catch
-                    {
-                        WriteLine("Ogiltig information");
-                    }
+                    //     WriteLine("Produkt sparad");
+                    // }
+                    // catch
+                    // {
+                    //     WriteLine("Ogiltig information");
+                    // }
 
                     Thread.Sleep(2000);
 
@@ -313,32 +325,73 @@ class Program
         }
 
     }
-
-
-
     private static void SaveProduct(Product product)
     {
-        // TODO Skicka information om filmen till web API:et genom att skicka 
-        //      ett HTTP POST-anrop till https://localhost:8000/movies
+        try
+        {
+            // Serialisera produktobjektet till JSON
+            var json = JsonSerializer.Serialize(product);
 
-        // 1 - Serialisera movie-objekt till JSON ({ "title": "Aliens", "plot": "Lorem ipsum dolor", ... })
-        var json = JsonSerializer.Serialize(product);
+            // Skapa en StringContent med JSON-datan
+            var body = new StringContent(
+                json,
+                Encoding.UTF8,
+                "application/json");
 
-        var body = new StringContent(
-          json,
-          Encoding.UTF8,
-          // Beskriver formatet på data
-          "application/json");
+            // Gör HTTP POST-anropet till "products" endpoint
+            var response = httpClient.PostAsync("products", body).Result;
 
-        // POST https://localhost:8000/movies
-        var response = httpClient.PostAsync("products", body).Result;
+            // Kasta exception om statuskoden inte är inom 2xx-området
+            response.EnsureSuccessStatusCode();
 
-        // Om statuskod är "400 Bad Request", kasta exception som du sedan fångar
-        // där SaveMovie() anropas, och då visar meddelandet "Ogiltig information" i 2 sekunder.
-
-        // Kasta exception om statuskoden inte ligger inom 2xx-omfånget.
-        response.EnsureSuccessStatusCode();
+            // Om inget exception kastas, skriv ut att produkten sparades
+            WriteLine("Produkt sparad");
+        }
+        catch (HttpRequestException ex)
+        {
+            // Fånga upp exception om HTTP-anropet misslyckas
+            if (ex.StatusCode == HttpStatusCode.BadRequest)
+            {
+                // Visa felmeddelandet i 2 sekunder
+                WriteLine("Ogiltig information");
+                Thread.Sleep(2000);
+            }
+            else
+            {
+                // Om annat fel, skriv ut felmeddelandet
+                WriteLine($"Fel vid HTTP-anrop: {ex.Message}");
+            }
+        }
     }
+
 }
+
+
+
+
+// private static void SaveProduct(Product product)
+// {
+//     // TODO Skicka information om filmen till web API:et genom att skicka 
+//     //      ett HTTP POST-anrop till https://localhost:8000/movies
+
+//     // 1 - Serialisera movie-objekt till JSON ({ "title": "Aliens", "plot": "Lorem ipsum dolor", ... })
+//     var json = JsonSerializer.Serialize(product);
+
+//     var body = new StringContent(
+//       json,
+//       Encoding.UTF8,
+//       // Beskriver formatet på data
+//       "application/json");
+
+//     // POST https://localhost:8000/movies
+//     var response = httpClient.PostAsync("products", body).Result;
+
+//     // Om statuskod är "400 Bad Request", kasta exception som du sedan fångar
+//     // där SaveMovie() anropas, och då visar meddelandet "Ogiltig information" i 2 sekunder.
+
+//     // Kasta exception om statuskoden inte ligger inom 2xx-omfånget.
+//     response.EnsureSuccessStatusCode();
+// }
+
 
 
